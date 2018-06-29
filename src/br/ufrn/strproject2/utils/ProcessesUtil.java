@@ -26,7 +26,6 @@ public class ProcessesUtil {
 			Process p = Runtime.getRuntime().exec(all? "ps -aux" : "ps -ux");
 			BufferedReader input = new BufferedReader(new InputStreamReader(p.getInputStream()));
             HostProcess hostProcess;
-            HostProcess oldProcess;
             input.readLine();
 			
 			int j;
@@ -58,8 +57,14 @@ public class ProcessesUtil {
 				nameSplit = readableName.split(" -");
 				readableName = nameSplit[0].trim();
 				
-				if (filter == null || readableName.contains(filter)) {
-                    String key = hostProcessData[1] + command;
+				if (filter == null || filter.equals("") ||
+                        command.contains(filter) || readableName.contains(command)) {
+                    // FIXME: monitored processes lost when filter is applied
+                    String key = String.valueOf(hostProcessData[1]) + String.valueOf(command);
+                    
+                    if (readableName.equals("main_1.ncl")) {
+                        System.out.println("contains: " + monitoredProcesses.containsKey(key));
+                    }
                     
                     if (monitoredProcesses.containsKey(key)) {
                         hostProcess = monitoredProcesses.get(key);

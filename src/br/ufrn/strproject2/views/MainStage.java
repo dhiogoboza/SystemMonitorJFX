@@ -44,9 +44,11 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseEvent;
@@ -63,6 +65,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+import javafx.util.Callback;
 
 /**
  *
@@ -166,7 +169,10 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
     private final EventHandler<MouseEvent> mouseEventHandler = (MouseEvent mouseEvent) -> {
 		if (mouseEvent.isSecondaryButtonDown()) {
 			contextMenu.show(center, mouseEvent.getScreenX(), mouseEvent.getScreenY());
-		}
+		} else if (mouseEvent.isPrimaryButtonDown()) {
+            // TODO: show command in a view
+            System.out.println("Command: " + viewProcesses.getSelectionModel().getSelectedItem().getCommand());
+        }
 	};
 	
 	public MainStage(Stage stage) {
@@ -260,7 +266,7 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
     }
 
     private void updateDimensions() {
-        prefWidth = 600;
+        prefWidth = 650;
         prefHeight = 520;
         
         layoutPane.setPrefSize(prefWidth, prefHeight);
@@ -331,7 +337,7 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
         
         TableColumn<HostProcess, Boolean> monitoredCol = new TableColumn<>(" ");
         TableColumn pidCol = new TableColumn("PID");
-        TableColumn nameCol = new TableColumn("Name");
+        TableColumn<HostProcess, String> nameCol = new TableColumn<>("Name");
 		TableColumn userCol = new TableColumn("User");
         TableColumn cpuCol = new TableColumn("CPU (%)");
 		TableColumn memCol = new TableColumn("Memory (%)");
@@ -547,7 +553,7 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
             String content = "";
             
             for (int i = 0; i < logs.size(); i++) {
-                content += String.valueOf(i) + "," + logs.get(i) + "\n";
+                content += String.valueOf(logs.get(i)) + "\n";
             }
             
             fileWriter.write(content);
