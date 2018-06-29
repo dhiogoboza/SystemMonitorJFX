@@ -5,12 +5,19 @@ import br.ufrn.strproject2.models.HostProcess;
 import br.ufrn.strproject2.utils.CoresManager;
 import br.ufrn.strproject2.utils.ProcessesUtil;
 import com.sun.management.OperatingSystemMXBean;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -40,6 +47,7 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
@@ -52,6 +60,7 @@ import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
@@ -63,7 +72,7 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 	
 	private static final String TAG = "MainStage";
 	
-	private static final int LOOP_DELAY = 500;
+	private static final int LOOP_DELAY = 1000;
 	private static final int DELAY_PROCESSES = 2000;
 	private static final int MAX_DATA_POINTS = 100;
 	
@@ -80,6 +89,8 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
     public ObservableList<HostProcess> userProcessesList = FXCollections.observableArrayList();
 	public ObservableList<HostProcess> allProcessesList = FXCollections.observableArrayList();
     
+    private HashMap<String, HostProcess> monitoredProcesses = new HashMap<>();
+    
     private CoresManager coresManager;
 	private LineChart<Number, Number> cpuChart;
 	private LineChart<Number, Number> memoryChart;
@@ -90,7 +101,7 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
     private Stage myStage;
     private CheckBox checkBoxAllProcesses;
     private TextField inputFilter;
-    private TableView viewProcesses;
+    private TableView<HostProcess> viewProcesses;
     private ContextMenu contextMenu;
 	
 	private String filterString;
@@ -109,7 +120,9 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		} else {
 			clickedId = ((Button) actionEvent.getSource()).getId();
 		}
-		
+        
+		HostProcess hostProcess = viewProcesses.getSelectionModel().getSelectedItem();
+        
 		switch (clickedId) {
 			case "exit":
 				updateProcessesService.shutdown();
@@ -118,16 +131,34 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 				}
 				break;
 			case "killp":
-				ProcessesUtil.killProcess((HostProcess) viewProcesses.getSelectionModel().getSelectedItem());
+				ProcessesUtil.killProcess(viewProcesses.getSelectionModel().getSelectedItem());
 				updateProcesses();
 				break;
 			case "pausep":
-				ProcessesUtil.pauseProcess((HostProcess) viewProcesses.getSelectionModel().getSelectedItem());
+				ProcessesUtil.pauseProcess(viewProcesses.getSelectionModel().getSelectedItem());
 				updateProcesses();
 				break;
 			case "continuep":
-				ProcessesUtil.continueProcess((HostProcess) viewProcesses.getSelectionModel().getSelectedItem());
+				ProcessesUtil.continueProcess(viewProcesses.getSelectionModel().getSelectedItem());
 				updateProcesses();
+				break;
+            case "monitorep":
+                if (!hostProcess.isMonitored()) {
+                    hostProcess.setMonitored(true);
+                    monitoredProcesses.put(hostProcess.getKey(), hostProcess);
+                    viewProcesses.refresh();
+                }
+				break;
+            case "smonitorep":
+                if (hostProcess.isMonitored()) {
+                    List<Long> memoryLogs = hostProcess.getMemoryLogs();
+                    monitoredProcesses.remove(hostProcess.getKey());
+                    hostProcess.setMonitored(false);
+                    
+                    saveLogs(hostProcess.getPID() + "-memory", memoryLogs);
+                    
+                    viewProcesses.refresh();
+                }
 				break;
 		}
 	};
@@ -203,8 +234,8 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 	private void initCenter() {
 		center = new TabPane();
         
-		addTab("Processos", initTabProcesses());
-		addTab("Recursos", initTabResources());
+		addTab("Processes", initTabProcesses());
+		addTab("Resources", initTabResources());
 		
         HBox centerContainer = new HBox(center);
         centerContainer.setPadding(new Insets(0, 10, 10, 10));
@@ -255,7 +286,7 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		
 		cpuChart = new LineChart<>(xCPUAxis, yAxis);
 		cpuChart.setAnimated(false);
-		cpuChart.setTitle("Uso de CPU");
+		cpuChart.setTitle("CPU usage");
 		
 		XYChart.Series series;
 		for (int i = 0; i < coresCount; i++) {
@@ -279,11 +310,11 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		xMemoryAxis = new NumberAxis(0, 100, 10);
 		
 		memoryChart = new LineChart<>(xMemoryAxis, new NumberAxis(0, 100, 25));
-		memoryChart.setTitle("Uso de memória");
+		memoryChart.setTitle("Memory usage");
 		memoryChart.setAnimated(false);
 		
 		memorySeries = new XYChart.Series();
-		memorySeries.setName("Uso de memória");
+		memorySeries.setName("Memory usage");
 		memoryChart.getData().add(memorySeries);
 		
 		VBox vBox = new VBox(cpuChart, coresContainer, memoryChart, memoryContainer);
@@ -295,17 +326,23 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		userProcessesList = FXCollections.observableArrayList();
 		allProcessesList = FXCollections.observableArrayList();
         
-		ProcessesUtil.getProcesses(allProcessesList, true);
-        ProcessesUtil.getProcesses(userProcessesList, false);
+		ProcessesUtil.getProcesses(allProcessesList, monitoredProcesses, true);
+        ProcessesUtil.getProcesses(userProcessesList, monitoredProcesses, false);
         
+        TableColumn<HostProcess, Boolean> monitoredCol = new TableColumn<>(" ");
         TableColumn pidCol = new TableColumn("PID");
-        TableColumn nameCol = new TableColumn("Nome do processo");
-		TableColumn userCol = new TableColumn("Usuário");
+        TableColumn nameCol = new TableColumn("Name");
+		TableColumn userCol = new TableColumn("User");
         TableColumn cpuCol = new TableColumn("CPU (%)");
-		TableColumn memCol = new TableColumn("Memória (%)");
+		TableColumn memCol = new TableColumn("Memory (%)");
+        
+        monitoredCol.setCellValueFactory(
+            new PropertyValueFactory<>("monitored")
+        );
+        monitoredCol.setCellFactory(column -> new CheckBoxTableCell()); 
         
         pidCol.setCellValueFactory(
-            new PropertyValueFactory<>("pid")
+            new PropertyValueFactory<>("PID")
         );
 		
 		nameCol.setCellValueFactory(
@@ -324,20 +361,20 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
             new PropertyValueFactory<>("MEM")
         );
 		
-        viewProcesses = new TableView();
+        viewProcesses = new TableView<>();
         viewProcesses.setEditable(false);
-        viewProcesses.getColumns().addAll(pidCol, nameCol, userCol, cpuCol, memCol);
+        viewProcesses.getColumns().addAll(monitoredCol, pidCol, nameCol, userCol, cpuCol, memCol);
         viewProcesses.setItems(userProcessesList);
         
         viewProcesses.setOnMousePressed(mouseEventHandler);
         
-        checkBoxAllProcesses = new CheckBox("Processos de todos usuários");
+        checkBoxAllProcesses = new CheckBox("All user processes");
         checkBoxAllProcesses.setOnAction(actionEventHandler);
         
         inputFilter = new TextField();
 		inputFilter.textProperty().addListener(this);
 		
-		Label labelFilter = new Label("Filtrar:");
+		Label labelFilter = new Label("Filter:");
 		labelFilter.setPadding(new Insets(0, 10, 0, 0));
         
 		HBox hBoxFilter = new HBox(labelFilter, inputFilter);
@@ -350,26 +387,27 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		
 		return new VBox(viewProcesses, hBoxOptions);
 	}
+    
+    private MenuItem createMenuItem(String title, String id) {
+        MenuItem menuItem = new MenuItem(title);
+		menuItem.setId(id);
+        
+        menuItem.setOnAction(actionEventHandler);
+        
+        return menuItem;
+    }
 
     private void initTableContextMenu() {
         TextField textField = new TextField("Type Something"); // we will add a popup menu to this text field
         contextMenu = new ContextMenu();
 		
-        MenuItem pauseP = new MenuItem("Stop process");
-		pauseP.setId("pausep");
-				
-		MenuItem continueP = new MenuItem("Continue process");
-		continueP.setId("continuep");
-				
-		MenuItem killP = new MenuItem("Kill process");
-		killP.setId("killp");
+        MenuItem pause = createMenuItem("Stop", "pausep");
+		MenuItem _continue = createMenuItem("Continue", "continuep");
+		MenuItem kill = createMenuItem("Kill", "killp");
+        MenuItem monitore = createMenuItem("Start monitoring", "monitorep");
+        MenuItem stopMonitoring = createMenuItem("Stop monitoring", "smonitorep");
         
-		pauseP.setOnAction(actionEventHandler);
-		continueP.setOnAction(actionEventHandler);
-		killP.setOnAction(actionEventHandler);
-		
-		
-        contextMenu.getItems().addAll(pauseP, continueP, new SeparatorMenuItem(), killP);
+        contextMenu.getItems().addAll(pause, _continue, kill, new SeparatorMenuItem(), monitore, stopMonitoring);
         // ...
         textField.setContextMenu(contextMenu);
     }
@@ -379,18 +417,19 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		
 		if (checkBoxAllProcesses.isSelected()) {
 			allProcessesList = FXCollections.observableArrayList();
-			ProcessesUtil.getProcesses(allProcessesList, true, filterString);
+			ProcessesUtil.getProcesses(allProcessesList, monitoredProcesses, true, filterString);
 			
 			viewProcesses.setItems(allProcessesList);
 		} else {
 			userProcessesList = FXCollections.observableArrayList();
-			ProcessesUtil.getProcesses(userProcessesList, false, filterString);
+			ProcessesUtil.getProcesses(userProcessesList, monitoredProcesses, false, filterString);
 			
 			viewProcesses.setItems(userProcessesList);
 		}
 		
 		viewProcesses.sort();
 		viewProcesses.getSelectionModel().select(current);
+        viewProcesses.refresh();
 	}
 	
 	private void backgroudFinishCallback() {
@@ -415,20 +454,9 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 			cpuInfo.getLabel().setText(cpuInfo.getName() + ": " + Math.round(cpuInfo.getUsage()) + "%");
 		}
 		
-		
-		
 		OperatingSystemMXBean os = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 		
-		//os.getTotalPhysicalMemorySize()
-		
 		double usedPercent = 100 * ((double) (1.0 -  ((double) os.getFreePhysicalMemorySize() / (double) os.getTotalPhysicalMemorySize())));
-		
-		//System.out.println("usedPercent: " + Runtime.getRuntime().freeMemory() / 1024);
-		//System.out.println("usedPercent: " + Runtime.getRuntime().totalMemory()/ 1024);
-		//System.out.println("        divi: " + ((double)Runtime.getRuntime().freeMemory()/(double)Runtime.getRuntime().totalMemory()));
-		//System.out.println("\n\n");
-		
-		
 		
 		usedPercent = Math.round(usedPercent > 99.9? 100 : usedPercent);
 		
@@ -438,7 +466,7 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		XYChart.Data memoryData = new XYChart.Data(currentGraphPosition, usedPercent);
 		memoryData.setNode(memRect);
 		
-		memoryChart.setTitle("Uso de memória (" + usedPercent + "%)");
+		memoryChart.setTitle("Memory usage (" + usedPercent + "%)");
 		
 		if (currentGraphPosition > MAX_DATA_POINTS) {	
 			memorySeries.getData().remove(0);
@@ -460,13 +488,30 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 	@Override
 	public void run() {
 		if (delayCount == DELAY_PROCESSES) {
+            delayCount = 0;
 			updateProcesses();
+            
+            HashSet<String> toRemove = new HashSet<>();
+            
+            // monitored processes
+            for (HostProcess hp: monitoredProcesses.values()) {
+                if (allProcessesList.contains(hp)) {
+                    ProcessesUtil.addMemoryLog(hp);
+                } else {
+                    toRemove.add(hp.getKey());
+                }
+            }
+            
+            // remove stopped processes
+            for (String hpKey: toRemove) {
+                monitoredProcesses.remove(hpKey);
+            }
 		}
-		
 		coresManager.getCPUProc();
-		Platform.runLater(this::backgroudFinishCallback);
 		
 		delayCount += LOOP_DELAY;
+        
+        Platform.runLater(this::backgroudFinishCallback);
 	}
 
 	@Override
@@ -480,5 +525,36 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 
 		updateProcesses();
 	}
+
+    private void saveLogs(String fileName, List<Long> logs) {
+        FileChooser fileChooser = new FileChooser();
+        
+        //Set extension filter
+        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("TXT files (*.txt)", "*.txt");
+        fileChooser.getExtensionFilters().add(extFilter);
+        fileChooser.setInitialFileName(fileName + ".txt");
+        
+        //Show save file dialog
+        File file = fileChooser.showSaveDialog(myStage);
+        
+        if(file != null){
+            saveFile(file, logs);
+        }
+    }
+
+    private void saveFile(File file, List<Long> logs) {
+        try (FileWriter fileWriter = new FileWriter(file)) {
+            String content = "";
+            
+            for (int i = 0; i < logs.size(); i++) {
+                content += String.valueOf(i) + "," + logs.get(i) + "\n";
+            }
+            
+            fileWriter.write(content);
+            fileWriter.close();
+        } catch (IOException ex) {
+            Logger.getLogger(MainStage.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 	
 }
