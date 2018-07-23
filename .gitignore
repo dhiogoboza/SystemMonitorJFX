@@ -8,6 +8,7 @@ nbproject/*
 !nbproject/project.properties
 !nbproject/project.xml
 !nbproject/build-impl.xml
+!nbproject/jfx-impl.xml
 manifest.mf
 
 #java specific
