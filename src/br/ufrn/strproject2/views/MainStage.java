@@ -28,6 +28,7 @@ import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -63,6 +64,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Callback;
@@ -85,9 +87,12 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 	private Scene stageScene;
 
 	private BorderPane layoutPane;
+	private MenuBar menuBar;
 
 	private double prefWidth;
 	private double prefHeight;
+
+	private boolean isFullscreen = false;
 
 	public ObservableList<HostProcess> userProcessesList = FXCollections.observableArrayList();
 	public ObservableList<HostProcess> allProcessesList = FXCollections.observableArrayList();
@@ -163,6 +168,11 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 					viewProcesses.refresh();
 				}
 				break;
+			case "fs":
+				isFullscreen = !isFullscreen;
+				myStage.setFullScreen(isFullscreen);
+				updateDimensions();
+				break;
 		}
 	};
 
@@ -180,22 +190,21 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 	}
 
 	public void init() {
-
 		Group root = new Group();
 		stageScene = new Scene(root);
 		myStage.setScene(stageScene);
 
-		myStage.setResizable(false);
+		myStage.setResizable(true);
 
 		layoutPane = new BorderPane();
 
 		root.getChildren().add(layoutPane);
 
-		updateDimensions();
-
 		initTableContextMenu();
 		initCenter();
 		initTop();
+
+		updateDimensions();
 
 		myStage.setOnCloseRequest(this);
 
@@ -204,10 +213,9 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 	}
 
 	private void initTop() {
-
 		TilePane topPane = new TilePane(Orientation.HORIZONTAL);
 
-		MenuBar menuBar = new MenuBar();
+		menuBar = new MenuBar();
 
 		// --- Menu File
 		Menu menuFile = new Menu("File");
@@ -228,10 +236,6 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 
 		menuBar.getMenus().addAll(menuFile, menuEdit, menuView);
 
-		// pane.setPrefHeight(100);
-		// pane.setPrefWidth(getWidth());
-		menuBar.setPrefWidth(prefWidth);
-
 		topPane.getChildren().add(menuBar);
 
 		layoutPane.setTop(topPane);
@@ -239,6 +243,8 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 
 	private void initCenter() {
 		center = new TabPane();
+
+		HBox.setHgrow(center, Priority.ALWAYS);
 
 		addTab("Processes", initTabProcesses());
 		addTab("Resources", initTabResources());
@@ -266,14 +272,21 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 	}
 
 	private void updateDimensions() {
-		prefWidth = 650;
-		prefHeight = 520;
+		if (isFullscreen) {
+			Rectangle2D screenBounds = Screen.getPrimary().getBounds();
 
+			prefWidth = screenBounds.getWidth();
+			prefHeight = screenBounds.getHeight();
+		} else {
+			prefWidth = 650;
+			prefHeight = 520;
+		}
+
+		menuBar.setPrefWidth(prefWidth);
 		layoutPane.setPrefSize(prefWidth, prefHeight);
 	}
 
 	private Node initTabResources() {
-
 		HBox coresContainer = new HBox();
 
 		coresContainer.setPrefWidth(prefWidth);
@@ -376,6 +389,8 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		HBox hBoxOptions = new HBox(checkBoxAllProcesses, hBoxFilter);
 		hBoxOptions.setPrefWidth(prefWidth);
 		hBoxOptions.setPadding(new Insets(10));
+
+		VBox.setVgrow(viewProcesses, Priority.ALWAYS);
 
 		return new VBox(viewProcesses, hBoxOptions);
 	}
