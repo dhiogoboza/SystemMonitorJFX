@@ -1,0 +1,30 @@
+// Works with Gradle 6.3 and Java 14
+
+// To run this do:
+// ./gradlew run
+
+// To build a distribution zip:
+// ./gradlew distZip
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.0.8'
+}
+
+sourceCompatibility = 14
+targetCompatibility = 14
+
+sourceSets.main.java.srcDirs = ['src']
+version = '0.0.2'
+group = 'br.ufrn.strproject2'
+mainClassName = "br.ufrn.strproject2.Main"
+
+javafx {
+    version = "14"
+    modules = ['javafx.base', 'javafx.graphics', 'javafx.controls', 'javafx.fxml']
+}
+
+repositories {
+    mavenCentral()
+}

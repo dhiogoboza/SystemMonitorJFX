@@ -7,10 +7,25 @@ A sample system monitor from linux systems using JavaFX.
 ![Picture 2](screenshots/picture02.png "Resources")
 
 
+## Requirements
+
+- JDK
+- javaFX: `sudo apt-get install openjfx`
+
 ## Compiling and Running
 
-To compile and run this project type ./compile_run.sh in project root folder.
+### Using ant
+To compile and run this project type ./compile_run.sh in project root folder. Or to compile use:
 
+```bash
+ant -Dplatforms.JDK_1.8.home={YOUR_JAVA_HOME}
+```
+
+### Using gradle
+Type:
+```bash
+./gradlew run
+```
 
 ## Authors
 

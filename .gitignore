@@ -22,3 +22,8 @@ manifest.mf
 *.swp
 *.DS_Store
 *.lock
+
+### Gradle ###
+.gradle
+/build/
+gradle/
