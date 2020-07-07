@@ -16,7 +16,7 @@ import javafx.stage.Stage;
  */
 public class Main extends Application {
     private MainStage mainStage;
-    
+
     @Override
     public void start(Stage primaryStage) {
         mainStage = new MainStage(primaryStage);
@@ -30,5 +30,5 @@ public class Main extends Application {
     public static void main(String[] args) {
         launch(args);
     }
-    
+
 }

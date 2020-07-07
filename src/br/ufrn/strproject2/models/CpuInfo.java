@@ -8,14 +8,14 @@ import javafx.scene.control.Label;
  * @author dhiogoboza
  */
 public class CpuInfo {
-	private long idle = 0;      //CPU Idle time
-    private long total = 0;     //CPU Total time
-    private final int conservative = 0;
-    private final int average = 1;
-    private final int optmistic = 2;
+	private long idle = 0; // CPU Idle time
+	private long total = 0; // CPU Total time
+	private final int conservative = 0;
+	private final int average = 1;
+	private final int optmistic = 2;
 	private String name;
 	private double usage = 0;
-	
+
 	private final Label label;
 	private final XYChart.Series series;
 
@@ -46,7 +46,7 @@ public class CpuInfo {
 	}
 
 	public void setUsage(double usage) {
-		this.usage = usage > 100? 100 : usage;
+		this.usage = usage > 100 ? 100 : usage;
 	}
 
 	public String getName() {

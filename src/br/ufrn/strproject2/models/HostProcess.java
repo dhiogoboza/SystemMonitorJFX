@@ -20,12 +20,11 @@ public class HostProcess {
     private String MEM;
     private String start;
     private String time;
-	private String readableName;
+    private String readableName;
     private boolean monitored;
-    
+
     private List<Long> memoryLogs;
     private BooleanProperty mProperty;
-    
 
     public HostProcess() {
         monitored = false;
@@ -88,13 +87,13 @@ public class HostProcess {
         this.time = time;
     }
 
-	public String getReadableName() {
-		return readableName;
-	}
+    public String getReadableName() {
+        return readableName;
+    }
 
-	public void setReadableName(String readableName) {
-		this.readableName = readableName;
-	}
+    public void setReadableName(String readableName) {
+        this.readableName = readableName;
+    }
 
     public boolean isMonitored() {
         return monitored;
@@ -103,14 +102,14 @@ public class HostProcess {
     public BooleanProperty monitoredProperty() {
         return mProperty;
     }
-    
+
     public void setMonitored(boolean monitored) {
         if (monitored) {
             memoryLogs = new ArrayList<>();
         } else {
             memoryLogs = null;
         }
-        
+
         mProperty.setValue(monitored);
         this.monitored = monitored;
     }
@@ -118,17 +117,18 @@ public class HostProcess {
     public List<Long> getMemoryLogs() {
         return memoryLogs;
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (obj == null || !(obj instanceof HostProcess)) {
             return false;
         }
-        
+
         HostProcess another = (HostProcess) obj;
-        
+
         return getKey().equals(another.getKey());
     }
+
     public void addMemoryLog(long log) {
         memoryLogs.add(log);
     }
@@ -136,6 +136,5 @@ public class HostProcess {
     public String getKey() {
         return String.valueOf(pid) + String.valueOf(command);
     }
-    
-    
+
 }
