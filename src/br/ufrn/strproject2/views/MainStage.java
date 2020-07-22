@@ -195,6 +195,22 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 		myStage.setScene(stageScene);
 
 		myStage.setResizable(true);
+		myStage.setWidth(650);
+		myStage.setHeight(520);
+
+		myStage.widthProperty().addListener(new ChangeListener<Number>() {
+			@Override
+			public void changed(ObservableValue<? extends Number> observableValue, Number oldSceneWidth, Number newSceneWidth) {
+				updateDimensions();
+			}
+		});
+
+		myStage.heightProperty().addListener(new ChangeListener<Number>() {
+			@Override
+			public void changed(ObservableValue<? extends Number> observableValue, Number oldSceneHeight, Number newSceneHeight) {
+				updateDimensions();
+			}
+		});
 
 		layoutPane = new BorderPane();
 
@@ -278,8 +294,8 @@ public class MainStage implements Runnable, EventHandler<WindowEvent>, ChangeLis
 			prefWidth = screenBounds.getWidth();
 			prefHeight = screenBounds.getHeight();
 		} else {
-			prefWidth = 650;
-			prefHeight = 520;
+			prefWidth = myStage.getWidth();
+			prefHeight = myStage.getHeight() - menuBar.getHeight();
 		}
 
 		menuBar.setPrefWidth(prefWidth);
