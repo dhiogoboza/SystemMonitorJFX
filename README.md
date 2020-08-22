@@ -1,6 +1,6 @@
 # Linux System Monitor - JavaFX
 
-A sample system monitor from linux systems using JavaFX.
+A sample system monitor for Linux using JavaFX.
 
 ![Picture 1](screenshots/picture01.png "Processes")
 
